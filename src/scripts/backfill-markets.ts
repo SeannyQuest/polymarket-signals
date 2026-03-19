@@ -6,20 +6,34 @@
  * Runs locally to avoid Vercel's 60s function timeout.
  */
 import { PrismaClient } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { fetchAllGammaMarkets } from "../data-sync/polymarket/gamma-client";
 import {
   parseGammaMarket,
   buildMarketUpsertPayload,
 } from "../data-sync/polymarket/parsers";
 
+neonConfig.webSocketConstructor = ws;
+
+const adapter = new PrismaNeon({
+  connectionString: process.env.DATABASE_URL!,
+});
 const prisma = new PrismaClient({
+  adapter,
   log: ["error", "warn"],
 });
 
 async function backfill(): Promise<void> {
   console.log("Starting historical backfill of resolved markets...");
 
-  const rawMarkets = await fetchAllGammaMarkets({ resolved: true });
+  // Cap at 100 pages (10,000 markets) — Polymarket has 500k+ resolved markets;
+  // we only need a statistically meaningful sample for category bias computation.
+  const rawMarkets = await fetchAllGammaMarkets({
+    resolved: true,
+    maxPages: 100,
+  });
   console.log(`Fetched ${rawMarkets.length} resolved markets from Gamma API`);
 
   let upserted = 0;

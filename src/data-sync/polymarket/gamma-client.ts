@@ -70,14 +70,18 @@ export async function fetchGammaMarkets(
 }
 
 export async function fetchAllGammaMarkets(
-  options: Omit<FetchMarketsOptions, "limit" | "offset">,
+  options: Omit<FetchMarketsOptions, "limit" | "offset"> & {
+    maxPages?: number;
+  },
 ): Promise<GammaMarketRaw[]> {
+  const { maxPages, ...fetchOptions } = options;
   const all: GammaMarketRaw[] = [];
   let offset = 0;
+  let pageCount = 0;
 
   while (true) {
     const page = await fetchGammaMarkets({
-      ...options,
+      ...fetchOptions,
       limit: PAGE_LIMIT,
       offset,
     });
@@ -85,8 +89,10 @@ export async function fetchAllGammaMarkets(
     if (page.length === 0) break;
 
     all.push(...page);
+    pageCount++;
 
     if (page.length < PAGE_LIMIT) break;
+    if (maxPages !== undefined && pageCount >= maxPages) break;
 
     offset += PAGE_LIMIT;
     await delay(REQUEST_DELAY_MS);
