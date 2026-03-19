@@ -1,0 +1,20 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/sync-markets",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-snapshots",
+      "schedule": "2,7,12,17,22,27,32,37,42,47,52,57 * * * *"
+    },
+    {
+      "path": "/api/cron/run-signals",
+      "schedule": "4,9,14,19,24,29,34,39,44,49,54,59 * * * *"
+    },
+    {
+      "path": "/api/cron/grade-signals",
+      "schedule": "30 * * * *"
+    }
+  ]
+}
