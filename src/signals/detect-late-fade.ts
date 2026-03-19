@@ -3,7 +3,7 @@ import type { SignalDetectionResult } from "../types";
 
 export function detectLateFade(
   market: Market,
-  categoryBias: CategoryBias | null | undefined
+  categoryBias: CategoryBias | null | undefined,
 ): SignalDetectionResult | null {
   if (!market.endDate) return null;
   if (!categoryBias) return null;
@@ -17,7 +17,7 @@ export function detectLateFade(
   if (currentPrice === null) return null;
 
   // Leader must be dominating (>80%)
-  if (currentPrice < 0.80) return null;
+  if (currentPrice < 0.8) return null;
 
   // Need historical fade data
   const fadePct = categoryBias.lateFadePct;
@@ -34,6 +34,7 @@ export function detectLateFade(
     signalType: "LATE_FADE",
     direction: "BUY_NO",
     confidence,
+    expiresAt: market.endDate,
     details: {
       hoursToResolution: hoursToEnd,
       currentPrice,

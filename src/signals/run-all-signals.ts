@@ -35,8 +35,12 @@ export async function runAllSignals(): Promise<RunSignalsResult> {
     data: { active: false },
   });
 
-  // 4. Run detectors for each market
-  let signalsUpserted = 0;
+  // 4. Run detectors for each market and collect all results
+  const allResults: Array<{
+    marketId: string;
+    price: number | null;
+    result: import("../types").SignalDetectionResult;
+  }> = [];
 
   for (const market of markets) {
     const bias = biasMap.get(market.category ?? "uncategorized") ?? null;
@@ -50,21 +54,31 @@ export async function runAllSignals(): Promise<RunSignalsResult> {
 
     for (const result of detectionResults) {
       if (!result) continue;
+      allResults.push({
+        marketId: market.id,
+        price: market.lastTradePrice,
+        result,
+      });
+    }
+  }
 
-      await prisma.signal.upsert({
+  // 5. Batch upsert all signals in parallel
+  await Promise.all(
+    allResults.map(({ marketId, price, result }) =>
+      prisma.signal.upsert({
         where: {
           marketId_signalType: {
-            marketId: market.id,
+            marketId,
             signalType: result.signalType as SignalType,
           },
         },
         create: {
-          marketId: market.id,
+          marketId,
           signalType: result.signalType as SignalType,
           direction: result.direction,
           confidence: result.confidence,
           details: result.details as Prisma.InputJsonValue,
-          priceAtDetection: market.lastTradePrice,
+          priceAtDetection: price,
           active: true,
           expiresAt: result.expiresAt ?? null,
         },
@@ -75,11 +89,11 @@ export async function runAllSignals(): Promise<RunSignalsResult> {
           active: true,
           detectedAt: new Date(),
         },
-      });
+      }),
+    ),
+  );
 
-      signalsUpserted++;
-    }
-  }
+  const signalsUpserted = allResults.length;
 
   return {
     marketsProcessed: markets.length,
