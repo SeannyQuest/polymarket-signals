@@ -5,6 +5,7 @@ const REQUEST_DELAY_MS = 200;
 // Note: numeric fields may come back as strings OR numbers — always parseFloat()
 export interface GammaMarketRaw {
   id: string;
+  conditionId?: string; // hex hash used by CLOB API
   slug: string;
   question: string;
   description?: string;

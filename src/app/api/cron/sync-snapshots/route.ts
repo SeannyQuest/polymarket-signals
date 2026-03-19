@@ -35,7 +35,12 @@ async function syncSnapshots(): Promise<Record<string, unknown>> {
   // 1. Load all tracked, active, unresolved markets
   const markets = await prisma.market.findMany({
     where: { isTracked: true, active: true, resolved: false },
-    select: { id: true, externalId: true, lastTradePrice: true, liquidity: true },
+    select: {
+      id: true,
+      externalId: true,
+      lastTradePrice: true,
+      liquidity: true,
+    },
   });
 
   let snapshotCount = 0;
@@ -43,8 +48,12 @@ async function syncSnapshots(): Promise<Record<string, unknown>> {
 
   for (const market of markets) {
     try {
-      // 2. Fetch current price from CLOB API
-      const clobData = await fetchClobMarket(market.id);
+      // 2. Fetch current price from CLOB API (requires conditionId, stored as externalId)
+      if (!market.externalId) {
+        errorCount++;
+        continue;
+      }
+      const clobData = await fetchClobMarket(market.externalId);
       if (!clobData) {
         errorCount++;
         continue;

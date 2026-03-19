@@ -54,6 +54,7 @@ export function parseGammaMarket(
     id: raw.id,
     slug: raw.slug,
     question: raw.question,
+    externalId: raw.conditionId ?? null,
     category: normalizeCategory(raw.category),
     endDate: raw.endDate ? new Date(raw.endDate) : null,
     resolved,
@@ -79,6 +80,7 @@ export function buildMarketUpsertPayload(
   return {
     slug: parsed.slug,
     question: parsed.question,
+    externalId: parsed.externalId,
     category: parsed.category,
     endDate: parsed.endDate,
     resolved: parsed.resolved ?? false,
