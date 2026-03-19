@@ -14,6 +14,8 @@ function normalizeCategory(category: string | null): string {
 export function parseGammaMarket(
   raw: GammaMarketRaw,
 ): Prisma.MarketCreateInput | null {
+  if (!raw.id || !raw.slug) return null;
+
   // Parse outcomePrices — field is a JSON array string like "[\"0.72\", \"0.28\"]"
   let outcomePrices: string[];
   try {
@@ -58,5 +60,27 @@ export function parseGammaMarket(
       isNaN(liquidity) ? 0 : liquidity,
       isNaN(volume24h) ? 0 : volume24h,
     ),
+  };
+}
+
+export function buildMarketUpsertPayload(
+  parsed: NonNullable<ReturnType<typeof parseGammaMarket>>,
+) {
+  return {
+    slug: parsed.slug,
+    question: parsed.question,
+    category: parsed.category,
+    endDate: parsed.endDate,
+    resolved: parsed.resolved ?? false,
+    resolvedAt: parsed.resolvedAt,
+    resolvedYes: parsed.resolvedYes,
+    lastTradePrice: parsed.lastTradePrice,
+    bestBid: parsed.bestBid,
+    bestAsk: parsed.bestAsk,
+    volume: parsed.volume,
+    volume24h: parsed.volume24h,
+    liquidity: parsed.liquidity,
+    active: parsed.active,
+    isTracked: parsed.isTracked,
   };
 }

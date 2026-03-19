@@ -1,7 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { executeCronJob } from "@/app/api/cron/cron-handler";
 import { fetchAllGammaMarkets } from "@/data-sync/polymarket/gamma-client";
-import { parseGammaMarket } from "@/data-sync/polymarket/parsers";
+import {
+  parseGammaMarket,
+  buildMarketUpsertPayload,
+} from "@/data-sync/polymarket/parsers";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +12,10 @@ export const maxDuration = 300;
 
 function verifyCronSecret(authHeader: string | null): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // Dev: allow if no secret set
+  if (!secret) {
+    console.warn("CRON_SECRET not set — cron endpoint is unprotected");
+    return true;
+  }
   return authHeader === `Bearer ${secret}`;
 }
 
@@ -56,12 +62,12 @@ async function computeCategoryBias(): Promise<void> {
     const resolvedYesCount = yesMarkets.length;
     const resolvedYesPct = resolvedYesCount / total;
 
-    const yesPrices = yesMarkets
+    const allPrices = markets
       .map((m) => m.lastTradePrice)
       .filter((p): p is number => p !== null);
     const avgFinalPriceYes =
-      yesPrices.length > 0
-        ? yesPrices.reduce((a, b) => a + b, 0) / yesPrices.length
+      allPrices.length > 0
+        ? allPrices.reduce((a, b) => a + b, 0) / allPrices.length
         : null;
 
     const yesEdge =
@@ -106,7 +112,8 @@ async function computeCategoryBias(): Promise<void> {
 }
 
 async function syncMarkets(): Promise<Record<string, unknown>> {
-  let upsertedCount = 0;
+  let activeUpserted = 0;
+  let resolvedUpserted = 0;
   let skippedCount = 0;
 
   // 1. Fetch and upsert active markets
@@ -120,25 +127,9 @@ async function syncMarkets(): Promise<Record<string, unknown>> {
     await prisma.market.upsert({
       where: { id: parsed.id as string },
       create: parsed,
-      update: {
-        slug: parsed.slug,
-        question: parsed.question,
-        category: parsed.category,
-        endDate: parsed.endDate,
-        resolved: parsed.resolved,
-        resolvedAt: parsed.resolvedAt,
-        resolvedYes: parsed.resolvedYes,
-        lastTradePrice: parsed.lastTradePrice,
-        bestBid: parsed.bestBid,
-        bestAsk: parsed.bestAsk,
-        volume: parsed.volume,
-        volume24h: parsed.volume24h,
-        liquidity: parsed.liquidity,
-        active: parsed.active,
-        isTracked: parsed.isTracked,
-      },
+      update: buildMarketUpsertPayload(parsed),
     });
-    upsertedCount++;
+    activeUpserted++;
   }
 
   // 2. Fetch and upsert resolved markets
@@ -152,32 +143,18 @@ async function syncMarkets(): Promise<Record<string, unknown>> {
     await prisma.market.upsert({
       where: { id: parsed.id as string },
       create: parsed,
-      update: {
-        slug: parsed.slug,
-        question: parsed.question,
-        category: parsed.category,
-        endDate: parsed.endDate,
-        resolved: parsed.resolved,
-        resolvedAt: parsed.resolvedAt,
-        resolvedYes: parsed.resolvedYes,
-        lastTradePrice: parsed.lastTradePrice,
-        bestBid: parsed.bestBid,
-        bestAsk: parsed.bestAsk,
-        volume: parsed.volume,
-        volume24h: parsed.volume24h,
-        liquidity: parsed.liquidity,
-        active: parsed.active,
-        isTracked: parsed.isTracked,
-      },
+      update: buildMarketUpsertPayload(parsed),
     });
-    upsertedCount++;
+    resolvedUpserted++;
   }
 
-  // 3. Compute category bias
-  await computeCategoryBias();
+  // 3. Only recompute bias if something changed
+  if (activeUpserted > 0 || resolvedUpserted > 0) {
+    await computeCategoryBias();
+  }
 
   return {
-    upsertedCount,
+    upsertedCount: activeUpserted + resolvedUpserted,
     skippedCount,
     activeMarkets: activeRaw.length,
     resolvedMarkets: resolvedRaw.length,

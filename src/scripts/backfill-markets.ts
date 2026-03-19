@@ -7,7 +7,10 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { fetchAllGammaMarkets } from "../data-sync/polymarket/gamma-client";
-import { parseGammaMarket } from "../data-sync/polymarket/parsers";
+import {
+  parseGammaMarket,
+  buildMarketUpsertPayload,
+} from "../data-sync/polymarket/parsers";
 
 const prisma = new PrismaClient({
   log: ["error", "warn"],
@@ -34,23 +37,7 @@ async function backfill(): Promise<void> {
     await prisma.market.upsert({
       where: { id: parsed.id as string },
       create: parsed,
-      update: {
-        slug: parsed.slug,
-        question: parsed.question,
-        category: parsed.category,
-        endDate: parsed.endDate,
-        resolved: parsed.resolved,
-        resolvedAt: parsed.resolvedAt,
-        resolvedYes: parsed.resolvedYes,
-        lastTradePrice: parsed.lastTradePrice,
-        bestBid: parsed.bestBid,
-        bestAsk: parsed.bestAsk,
-        volume: parsed.volume,
-        volume24h: parsed.volume24h,
-        liquidity: parsed.liquidity,
-        active: parsed.active,
-        isTracked: parsed.isTracked,
-      },
+      update: buildMarketUpsertPayload(parsed),
     });
 
     upserted++;
