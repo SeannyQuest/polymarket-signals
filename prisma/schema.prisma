@@ -1,0 +1,128 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Market {
+  id             String                @id
+  slug           String                @unique
+  question       String
+  category       String?
+  endDate        DateTime?
+  resolved       Boolean               @default(false)
+  resolvedAt     DateTime?
+  resolvedYes    Boolean?
+  lastTradePrice Float?
+  bestBid        Float?
+  bestAsk        Float?
+  volume         Float?
+  volume24h      Float?
+  liquidity      Float?
+  active         Boolean               @default(true)
+  isTracked      Boolean               @default(false)
+  externalId     String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  snapshots      MarketPriceSnapshot[]
+  signals        Signal[]
+
+  @@index([category])
+  @@index([active, resolved])
+  @@index([isTracked, active])
+  @@index([endDate])
+}
+
+model MarketPriceSnapshot {
+  id               Int      @id @default(autoincrement())
+  marketId         String
+  market           Market   @relation(fields: [marketId], references: [id])
+  price            Float
+  spread           Float?
+  volume24h        Float?
+  volumeCumulative Float?
+  liquidity        Float?
+  liquidityDelta   Float?
+  numTrades        Int?
+  timestamp        DateTime @default(now())
+
+  @@index([marketId, timestamp])
+  @@index([timestamp])
+}
+
+enum SignalType {
+  PRICE_DRIFT
+  SHARP_MONEY
+  RESOLUTION_BIAS
+  LATE_FADE
+}
+
+enum SignalDirection {
+  BUY_YES
+  BUY_NO
+}
+
+model Signal {
+  id               Int             @id @default(autoincrement())
+  marketId         String
+  market           Market          @relation(fields: [marketId], references: [id])
+  signalType       SignalType
+  direction        SignalDirection
+  confidence       Int
+  details          Json
+  detectedAt       DateTime        @default(now())
+  expiresAt        DateTime?
+  active           Boolean         @default(true)
+  wasCorrect       Boolean?
+  priceAtDetection Float?
+  priceAtExpiry    Float?
+  gradedAt         DateTime?
+
+  @@unique([marketId, signalType])
+  @@index([active, confidence])
+  @@index([signalType])
+}
+
+model CategoryBias {
+  id                 Int      @id @default(autoincrement())
+  category           String   @unique
+  totalResolved      Int      @default(0)
+  resolvedYesCount   Int      @default(0)
+  resolvedYesPct     Float?
+  avgFinalPriceYes   Float?
+  yesEdge            Float?
+  lateFadeCount      Int      @default(0)
+  lateFadeSampleSize Int      @default(0)
+  lateFadePct        Float?
+  computedAt         DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model SignalBacktestResult {
+  id               Int        @id @default(autoincrement())
+  signalType       SignalType
+  minConfidence    Int
+  category         String?
+  totalSignals     Int        @default(0)
+  correctSignals   Int        @default(0)
+  winRate          Float?
+  computedAt       DateTime   @default(now())
+
+  @@unique([signalType, minConfidence, category])
+  @@index([signalType])
+}
+
+model SyncLog {
+  id        Int      @id @default(autoincrement())
+  jobName   String
+  status    String
+  duration  Int?
+  details   Json?
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([jobName, createdAt])
+}
