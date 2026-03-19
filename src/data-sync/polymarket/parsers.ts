@@ -37,12 +37,17 @@ export function parseGammaMarket(
   const bestBid = raw.bestBid != null ? parseFloat(String(raw.bestBid)) : NaN;
   const bestAsk = raw.bestAsk != null ? parseFloat(String(raw.bestAsk)) : NaN;
 
-  // resolved = closed in Gamma API; outcome derived from outcomePrices
+  // resolved = closed in Gamma API; outcome derived from outcomePrices.
+  // Old markets use prices like "0.9999..." instead of exact "1" — use >0.99 threshold.
   const resolved = raw.closed === true;
   let resolvedYes: boolean | undefined = undefined;
   if (resolved) {
-    if (outcomePrices[0] === "1") resolvedYes = true;
-    else if (outcomePrices[1] === "1") resolvedYes = false;
+    const p0 = parseFloat(outcomePrices[0]);
+    const p1 = parseFloat(outcomePrices[1]);
+    if (!isNaN(p0) && !isNaN(p1)) {
+      if (p0 > 0.99) resolvedYes = true;
+      else if (p1 > 0.99) resolvedYes = false;
+    }
   }
 
   return {
