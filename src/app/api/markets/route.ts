@@ -10,11 +10,17 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category");
   const resolvedParam = searchParams.get("resolved");
-  const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "20", 10), 100);
+  const pageRaw = parseInt(searchParams.get("page") ?? "1", 10);
+  const page = isNaN(pageRaw) ? 1 : Math.max(1, pageRaw);
+  const limitRaw = parseInt(searchParams.get("limit") ?? "20", 10);
+  const limit = isNaN(limitRaw) ? 20 : Math.min(limitRaw, 100);
 
   const resolved =
-    resolvedParam === "true" ? true : resolvedParam === "false" ? false : undefined;
+    resolvedParam === "true"
+      ? true
+      : resolvedParam === "false"
+        ? false
+        : undefined;
 
   const cacheKey = `markets:${category}:${resolvedParam}:${page}:${limit}`;
 

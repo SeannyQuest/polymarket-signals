@@ -3,15 +3,25 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { cacheGetOrSet, TTL } from "@/lib/cache";
 import { jsonResponse } from "@/middleware/api-handler";
-import type { SignalType } from "@prisma/client";
+import { SignalType } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
-  const signalType = searchParams.get("signalType") as SignalType | null;
+  const signalTypeParam = searchParams.get("signalType");
+  const signalType =
+    signalTypeParam &&
+    Object.values(SignalType).includes(signalTypeParam as SignalType)
+      ? (signalTypeParam as SignalType)
+      : null;
   const minConfidenceParam = searchParams.get("minConfidence");
-  const minConfidence = minConfidenceParam !== null ? parseInt(minConfidenceParam, 10) : undefined;
+  const minConfidenceParsed =
+    minConfidenceParam !== null ? parseInt(minConfidenceParam, 10) : undefined;
+  const minConfidence =
+    minConfidenceParsed !== undefined && isNaN(minConfidenceParsed)
+      ? undefined
+      : minConfidenceParsed;
   const category = searchParams.get("category");
 
   const cacheKey = `backtest:${signalType}:${minConfidence}:${category}`;
