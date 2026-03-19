@@ -1,5 +1,4 @@
 const CLOB_BASE_URL = "https://clob.polymarket.com";
-const REQUEST_DELAY_MS = 100;
 
 interface ClobMarketRaw {
   condition_id: string;
@@ -20,25 +19,10 @@ export interface ClobMarketData {
   volume: number;
 }
 
-let _lastClobCall = 0;
-
-async function throttle(): Promise<void> {
-  const now = Date.now();
-  const elapsed = now - _lastClobCall;
-  if (elapsed < REQUEST_DELAY_MS) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, REQUEST_DELAY_MS - elapsed),
-    );
-  }
-  _lastClobCall = Date.now();
-}
-
 // Returns null on error
 export async function fetchClobMarket(
   conditionId: string,
 ): Promise<ClobMarketData | null> {
-  await throttle();
-
   const url = `${CLOB_BASE_URL}/markets/${conditionId}`;
 
   try {

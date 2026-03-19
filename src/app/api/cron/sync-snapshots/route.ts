@@ -46,52 +46,58 @@ async function syncSnapshots(): Promise<Record<string, unknown>> {
   let snapshotCount = 0;
   let errorCount = 0;
 
-  for (const market of markets) {
-    try {
-      // 2. Fetch current price from CLOB API (requires conditionId, stored as externalId)
-      if (!market.externalId) {
-        errorCount++;
-        continue;
-      }
-      const clobData = await fetchClobMarket(market.externalId);
-      if (!clobData) {
-        errorCount++;
-        continue;
-      }
+  // Process in batches of 10 concurrent CLOB requests to stay within 60s timeout
+  const BATCH_SIZE = 10;
+  for (let i = 0; i < markets.length; i += BATCH_SIZE) {
+    const batch = markets.slice(i, i + BATCH_SIZE);
 
-      // 3. Get previous snapshot to compute liquidityDelta
-      const prevSnapshot = await prisma.marketPriceSnapshot.findFirst({
-        where: { marketId: market.id },
-        orderBy: { timestamp: "desc" },
-        select: { liquidity: true },
-      });
+    await Promise.all(
+      batch.map(async (market) => {
+        try {
+          if (!market.externalId) {
+            errorCount++;
+            return;
+          }
 
-      const liquidityDelta =
-        prevSnapshot?.liquidity != null
-          ? clobData.liquidity - prevSnapshot.liquidity
-          : null;
+          const clobData = await fetchClobMarket(market.externalId);
+          if (!clobData) {
+            errorCount++;
+            return;
+          }
 
-      // 4. Insert snapshot
-      await prisma.marketPriceSnapshot.create({
-        data: {
-          marketId: market.id,
-          price: clobData.yesPrice,
-          spread:
-            clobData.yesPrice > 0 && clobData.noPrice > 0
-              ? Math.abs(clobData.yesPrice - clobData.noPrice)
-              : null,
-          volume24h: null, // CLOB doesn't give 24h volume directly; use market.volume24h from last sync
-          volumeCumulative: clobData.volume,
-          liquidity: clobData.liquidity,
-          liquidityDelta,
-        },
-      });
+          const prevSnapshot = await prisma.marketPriceSnapshot.findFirst({
+            where: { marketId: market.id },
+            orderBy: { timestamp: "desc" },
+            select: { liquidity: true },
+          });
 
-      snapshotCount++;
-    } catch (err) {
-      console.error(`Snapshot failed for market ${market.id}:`, err);
-      errorCount++;
-    }
+          const liquidityDelta =
+            prevSnapshot?.liquidity != null
+              ? clobData.liquidity - prevSnapshot.liquidity
+              : null;
+
+          await prisma.marketPriceSnapshot.create({
+            data: {
+              marketId: market.id,
+              price: clobData.yesPrice,
+              spread:
+                clobData.yesPrice > 0 && clobData.noPrice > 0
+                  ? Math.abs(clobData.yesPrice - clobData.noPrice)
+                  : null,
+              volume24h: null,
+              volumeCumulative: clobData.volume,
+              liquidity: clobData.liquidity,
+              liquidityDelta,
+            },
+          });
+
+          snapshotCount++;
+        } catch (err) {
+          console.error(`Snapshot failed for market ${market.id}:`, err);
+          errorCount++;
+        }
+      }),
+    );
   }
 
   // Prune snapshots for resolved markets older than 30 days
