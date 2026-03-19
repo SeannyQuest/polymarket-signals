@@ -29,16 +29,21 @@ export function parseGammaMarket(
     return null;
   }
 
-  const liquidity = parseFloat(raw.liquidity);
-  const volume = parseFloat(raw.volume);
-  const volume24h = parseFloat(raw.volume24hr); // note: "hr" not "h"
-  const lastTradePrice = parseFloat(raw.lastTradePrice);
-  const bestBid = parseFloat(raw.bestBid);
-  const bestAsk = parseFloat(raw.bestAsk);
+  const liquidity = parseFloat(String(raw.liquidity));
+  const volume = parseFloat(String(raw.volume));
+  const volume24h = parseFloat(String(raw.volume24hr)); // note: "hr" not "h"
+  const lastTradePrice =
+    raw.lastTradePrice != null ? parseFloat(String(raw.lastTradePrice)) : NaN;
+  const bestBid = raw.bestBid != null ? parseFloat(String(raw.bestBid)) : NaN;
+  const bestAsk = raw.bestAsk != null ? parseFloat(String(raw.bestAsk)) : NaN;
 
+  // resolved = closed in Gamma API; outcome derived from outcomePrices
+  const resolved = raw.closed === true;
   let resolvedYes: boolean | undefined = undefined;
-  if (raw.outcome === "yes") resolvedYes = true;
-  else if (raw.outcome === "no") resolvedYes = false;
+  if (resolved) {
+    if (outcomePrices[0] === "1") resolvedYes = true;
+    else if (outcomePrices[1] === "1") resolvedYes = false;
+  }
 
   return {
     id: raw.id,
@@ -46,8 +51,8 @@ export function parseGammaMarket(
     question: raw.question,
     category: normalizeCategory(raw.category),
     endDate: raw.endDate ? new Date(raw.endDate) : null,
-    resolved: raw.resolved,
-    resolvedAt: raw.resolvedAt ? new Date(raw.resolvedAt) : null,
+    resolved,
+    resolvedAt: raw.closedTime ? new Date(raw.closedTime) : null,
     resolvedYes,
     lastTradePrice: isNaN(lastTradePrice) ? null : lastTradePrice,
     bestBid: isNaN(bestBid) ? null : bestBid,

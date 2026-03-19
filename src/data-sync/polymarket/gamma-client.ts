@@ -2,26 +2,25 @@ const GAMMA_BASE_URL = "https://gamma-api.polymarket.com";
 const PAGE_LIMIT = 100;
 const REQUEST_DELAY_MS = 200;
 
-// ALL numeric fields in Gamma API responses are strings
+// Note: numeric fields may come back as strings OR numbers — always parseFloat()
 export interface GammaMarketRaw {
   id: string;
   slug: string;
   question: string;
-  description: string;
+  description?: string;
   endDate: string | null;
-  liquidity: string;
-  volume: string;
-  volume24hr: string; // note: "hr" not "h"
-  lastTradePrice: string;
-  bestBid: string;
-  bestAsk: string;
+  liquidity: string | number;
+  volume: string | number;
+  volume24hr: string | number; // note: "hr" not "h"
+  lastTradePrice: string | number | null;
+  bestBid: string | number | null;
+  bestAsk: string | number | null;
   active: boolean;
-  closed: boolean;
+  closed: boolean; // true = market is resolved/closed
   archived: boolean;
-  resolved: boolean;
-  resolvedAt: string | null;
-  outcome: string | null; // "yes" or "no"
-  outcomePrices: string; // JSON string: "[\"0.72\", \"0.28\"]"
+  closedTime: string | null; // when the market was resolved
+  outcomePrices: string; // JSON string: "[\"1\", \"0\"]" — [0]="1" means YES won
+  outcomes?: string; // JSON string: "[\"Yes\", \"No\"]"
   category: string | null;
 }
 
