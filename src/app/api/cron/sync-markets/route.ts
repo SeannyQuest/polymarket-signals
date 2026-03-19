@@ -116,8 +116,13 @@ async function syncMarkets(): Promise<Record<string, unknown>> {
   let resolvedUpserted = 0;
   let skippedCount = 0;
 
-  // 1. Fetch and upsert active markets
-  const activeRaw = await fetchAllGammaMarkets({ active: true });
+  // 1. Fetch top 500 active markets by 24h volume (highest liquidity first)
+  const activeRaw = await fetchAllGammaMarkets({
+    active: true,
+    order: "volume24hr",
+    ascending: false,
+    maxPages: 5,
+  });
   for (const raw of activeRaw) {
     const parsed = parseGammaMarket(raw);
     if (!parsed) {

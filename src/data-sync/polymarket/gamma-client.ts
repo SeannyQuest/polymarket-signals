@@ -30,6 +30,8 @@ export interface FetchMarketsOptions {
   offset?: number;
   active?: boolean;
   resolved?: boolean;
+  order?: string;
+  ascending?: boolean;
 }
 
 function delay(ms: number): Promise<void> {
@@ -39,13 +41,22 @@ function delay(ms: number): Promise<void> {
 export async function fetchGammaMarkets(
   options: FetchMarketsOptions,
 ): Promise<GammaMarketRaw[]> {
-  const { limit = PAGE_LIMIT, offset = 0, active, resolved } = options;
+  const {
+    limit = PAGE_LIMIT,
+    offset = 0,
+    active,
+    resolved,
+    order,
+    ascending,
+  } = options;
 
   const params = new URLSearchParams();
   params.set("limit", String(limit));
   params.set("offset", String(offset));
   if (active !== undefined) params.set("active", String(active));
   if (resolved !== undefined) params.set("resolved", String(resolved));
+  if (order !== undefined) params.set("order", order);
+  if (ascending !== undefined) params.set("ascending", String(ascending));
 
   const url = `${GAMMA_BASE_URL}/markets?${params.toString()}`;
 
