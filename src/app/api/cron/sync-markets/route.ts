@@ -132,8 +132,12 @@ async function syncMarkets(): Promise<Record<string, unknown>> {
     activeUpserted++;
   }
 
-  // 2. Fetch and upsert resolved markets
-  const resolvedRaw = await fetchAllGammaMarkets({ resolved: true });
+  // 2. Fetch and upsert recently resolved markets (cap at 10 pages / 1000 markets
+  //    to avoid Vercel timeout — full history lives in DB from the backfill)
+  const resolvedRaw = await fetchAllGammaMarkets({
+    resolved: true,
+    maxPages: 10,
+  });
   for (const raw of resolvedRaw) {
     const parsed = parseGammaMarket(raw);
     if (!parsed) {
@@ -148,10 +152,8 @@ async function syncMarkets(): Promise<Record<string, unknown>> {
     resolvedUpserted++;
   }
 
-  // 3. Only recompute bias if something changed
-  if (activeUpserted > 0 || resolvedUpserted > 0) {
-    await computeCategoryBias();
-  }
+  // 3. Always recompute bias from all resolved markets in DB
+  await computeCategoryBias();
 
   return {
     upsertedCount: activeUpserted + resolvedUpserted,
